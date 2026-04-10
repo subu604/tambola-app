@@ -7,11 +7,12 @@ from datetime import datetime
 app = FastAPI()
 
 players = {}
-connections = []
+connections = {}
 numbers = list(range(1,91))
 drawn = []
 tickets = {}
 winners = {"top": None, "middle": None, "bottom": None, "full": None}
+host = None
 
 @app.get("/")
 def home():
@@ -20,17 +21,24 @@ def home():
 @app.websocket("/ws")
 async def ws(websocket: WebSocket):
     await websocket.accept()
-    connections.append(websocket)
-
+    name = None
     try:
         while True:
             data = json.loads(await websocket.receive_text())
 
             if data["type"] == "join":
-                players[data["name"]] = str(datetime.now())
-                await broadcast({"type":"players","players":players})
+                name = data["name"]
+                players[name] = str(datetime.now())
+                connections[name] = websocket
+                await broadcast({"type":"players","players":list(players.keys()),"count":len(players),"host":host})
 
             if data["type"] == "start":
+                global host
+                if not host:
+                    host = data["name"]
+                if data["name"] != host:
+                    continue
+                await broadcast({"type":"host","host":host})
                 await broadcast({"type":"countdown"})
                 await asyncio.sleep(3)
                 generate_tickets()
@@ -38,7 +46,10 @@ async def ws(websocket: WebSocket):
                 asyncio.create_task(auto_draw())
 
     except:
-        connections.remove(websocket)
+        if name and name in connections:
+            del connections[name]
+            if name in players:
+                del players[name]
 
 async def auto_draw():
     global numbers
@@ -74,5 +85,5 @@ def check_winners():
     return results
 
 async def broadcast(msg):
-    for c in connections:
+    for c in connections.values():
         await c.send_text(json.dumps(msg))
