@@ -1,7 +1,14 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Tambola Game</title>
+<title>Tambola Pro</title>
+<style>
+body { font-family: Arial; text-align:center; }
+.grid { display:grid; grid-template-columns: repeat(9,40px); gap:5px; justify-content:center; }
+.cell { border:1px solid black; padding:10px; }
+.marked { background: lightgreen; }
+</style>
 </head>
 <body>
 
@@ -9,56 +16,71 @@
 
 <input id="name" placeholder="Enter name">
 <button onclick="join()">Join</button>
+<button onclick="start()">Start</button>
 
-<button onclick="start()">Start Game</button>
-<button onclick="next()">Next Number</button>
+<h3 id="status"></h3>
 
-<h3>Players</h3>
-<ul id="players"></ul>
+<div id="ticket" class="grid"></div>
 
-<h3>Current Number: <span id="number"></span></h3>
+<h3>Current Number: <span id="num"></span></h3>
 
 <h3>Winners</h3>
-<ul id="winners"></ul>
+<ul id="wins"></ul>
 
 <script>
 let ws = new WebSocket("ws://" + location.host + "/ws");
+let myTicket=[];
 
-function join() {
-    let name = document.getElementById("name").value;
-    ws.send(JSON.stringify({type: "join", name: name}));
+function join(){
+ let n=document.getElementById("name").value;
+ ws.send(JSON.stringify({type:"join",name:n}));
 }
 
-function start() {
-    ws.send(JSON.stringify({type: "start"}));
+function start(){
+ ws.send(JSON.stringify({type:"start"}));
 }
 
-function next() {
-    ws.send(JSON.stringify({type: "next_number"}));
+ws.onmessage=(e)=>{
+ let d=JSON.parse(e.data);
+
+ if(d.type==="countdown"){
+   document.getElementById("status").innerText="Game starting in 3 seconds...";
+ }
+
+ if(d.type==="tickets"){
+   let name=document.getElementById("name").value;
+   myTicket=d.tickets[name];
+   renderTicket();
+   document.getElementById("status").innerText="Game Started!";
+ }
+
+ if(d.type==="number"){
+   document.getElementById("num").innerText=d.number;
+   markNumber(d.number);
+
+   d.winners.forEach(w=>{
+     let li=document.createElement("li");
+     li.innerText=w;
+     document.getElementById("wins").appendChild(li);
+   });
+ }
+};
+
+function renderTicket(){
+ let grid=document.getElementById("ticket");
+ grid.innerHTML="";
+ myTicket.forEach(n=>{
+   let div=document.createElement("div");
+   div.className="cell";
+   div.id="c"+n;
+   div.innerText=n;
+   grid.appendChild(div);
+ });
 }
 
-ws.onmessage = (event) => {
-    let data = JSON.parse(event.data);
-
-    if (data.type === "players") {
-        let list = document.getElementById("players");
-        list.innerHTML = "";
-        data.players.forEach(p => {
-            let li = document.createElement("li");
-            li.innerText = p.name + " (" + p.joined_at + ")";
-            list.appendChild(li);
-        });
-    }
-
-    if (data.type === "update") {
-        document.getElementById("number").innerText = data.number;
-
-        data.winners.forEach(w => {
-            let li = document.createElement("li");
-            li.innerText = w.type + " - " + w.name;
-            document.getElementById("winners").appendChild(li);
-        });
-    }
+function markNumber(num){
+ let el=document.getElementById("c"+num);
+ if(el) el.classList.add("marked");
 }
 </script>
 

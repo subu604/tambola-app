@@ -1,49 +1,78 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+
+from fastapi import FastAPI, WebSocket
 from fastapi.responses import HTMLResponse
-from app.game import GameManager
-import json
+import json, asyncio, random
+from datetime import datetime
 
 app = FastAPI()
-game = GameManager()
 
+players = {}
 connections = []
+numbers = list(range(1,91))
+drawn = []
+tickets = {}
+winners = {"top": None, "middle": None, "bottom": None, "full": None}
 
 @app.get("/")
-def get():
-    with open("app/templates/index.html") as f:
-        return HTMLResponse(f.read())
+def home():
+    return HTMLResponse(open("app/templates/index.html").read())
 
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def ws(websocket: WebSocket):
     await websocket.accept()
     connections.append(websocket)
 
     try:
         while True:
-            data = await websocket.receive_text()
-            data = json.loads(data)
+            data = json.loads(await websocket.receive_text())
 
             if data["type"] == "join":
-                game.add_player(data["name"])
-                await broadcast({"type": "players", "players": game.players})
+                players[data["name"]] = str(datetime.now())
+                await broadcast({"type":"players","players":players})
 
-            elif data["type"] == "start":
-                game.start_game()
-                await broadcast({"type": "tickets", "tickets": game.tickets})
+            if data["type"] == "start":
+                await broadcast({"type":"countdown"})
+                await asyncio.sleep(3)
+                generate_tickets()
+                await broadcast({"type":"tickets","tickets":tickets})
+                asyncio.create_task(auto_draw())
 
-            elif data["type"] == "next_number":
-                number = game.draw_number()
-                winners = game.check_winners()
-                await broadcast({
-                    "type": "update",
-                    "number": number,
-                    "winners": winners
-                })
-
-    except WebSocketDisconnect:
+    except:
         connections.remove(websocket)
 
+async def auto_draw():
+    global numbers
+    random.shuffle(numbers)
+    while numbers:
+        num = numbers.pop()
+        drawn.append(num)
+        win = check_winners()
+        await broadcast({"type":"number","number":num,"winners":win})
+        await asyncio.sleep(3)
 
-async def broadcast(message):
-    for conn in connections:
-        await conn.send_text(json.dumps(message))
+def generate_tickets():
+    global tickets
+    tickets = {name: sorted(random.sample(range(1,91),15)) for name in players}
+
+def check_winners():
+    results = []
+    for name, ticket in tickets.items():
+        match = set(ticket) & set(drawn)
+
+        if len(match)>=5 and not winners["top"]:
+            winners["top"]=name
+            results.append(f"Top Line: {name}")
+        if len(match)>=10 and not winners["middle"]:
+            winners["middle"]=name
+            results.append(f"Middle Line: {name}")
+        if len(match)>=12 and not winners["bottom"]:
+            winners["bottom"]=name
+            results.append(f"Bottom Line: {name}")
+        if len(match)==15 and not winners["full"]:
+            winners["full"]=name
+            results.append(f"Full House: {name}")
+    return results
+
+async def broadcast(msg):
+    for c in connections:
+        await c.send_text(json.dumps(msg))
