@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tambola Game</title>
+</head>
+<body>
+
+<h2>Tambola Game</h2>
+
+<input id="name" placeholder="Enter name">
+<button onclick="join()">Join</button>
+
+<button onclick="start()">Start Game</button>
+<button onclick="next()">Next Number</button>
+
+<h3>Players</h3>
+<ul id="players"></ul>
+
+<h3>Current Number: <span id="number"></span></h3>
+
+<h3>Winners</h3>
+<ul id="winners"></ul>
+
+<script>
+let ws = new WebSocket("ws://" + location.host + "/ws");
+
+function join() {
+    let name = document.getElementById("name").value;
+    ws.send(JSON.stringify({type: "join", name: name}));
+}
+
+function start() {
+    ws.send(JSON.stringify({type: "start"}));
+}
+
+function next() {
+    ws.send(JSON.stringify({type: "next_number"}));
+}
+
+ws.onmessage = (event) => {
+    let data = JSON.parse(event.data);
+
+    if (data.type === "players") {
+        let list = document.getElementById("players");
+        list.innerHTML = "";
+        data.players.forEach(p => {
+            let li = document.createElement("li");
+            li.innerText = p.name + " (" + p.joined_at + ")";
+            list.appendChild(li);
+        });
+    }
+
+    if (data.type === "update") {
+        document.getElementById("number").innerText = data.number;
+
+        data.winners.forEach(w => {
+            let li = document.createElement("li");
+            li.innerText = w.type + " - " + w.name;
+            document.getElementById("winners").appendChild(li);
+        });
+    }
+}
+</script>
+
+</body>
+</html>
