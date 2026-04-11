@@ -16,41 +16,48 @@
 <div id="numbers"></div>
 
 <script>
-let ws = new WebSocket("ws://" + location.hostname + ":8000/ws");
+var ws;
 
-ws.onmessage = (msg) => {
-    let data = JSON.parse(msg.data);
+window.onload = function() {
+    ws = new WebSocket("ws://" + location.hostname + ":8000/ws");
 
-    if (data.type === "players") {
-        let ul = document.getElementById("players");
-        ul.innerHTML = "";
-        data.players.forEach(p => {
-            let li = document.createElement("li");
-            li.innerText = p;
-            ul.appendChild(li);
-        });
-    }
+    ws.onmessage = (msg) => {
+        let data = JSON.parse(msg.data);
 
-    if (data.type === "countdown") {
-        document.getElementById("countdown").innerText = data.value;
-    }
+        if (data.type === "players") {
+            let ul = document.getElementById("players");
+            ul.innerHTML = "";
+            data.players.forEach(p => {
+                let li = document.createElement("li");
+                li.innerText = p;
+                ul.appendChild(li);
+            });
+        }
 
-    if (data.type === "number") {
-        document.getElementById("numbers").innerHTML += data.value + " ";
-    }
+        if (data.type === "countdown") {
+            document.getElementById("countdown").innerText = data.value;
+        }
+
+        if (data.type === "number") {
+            document.getElementById("numbers").innerHTML += data.value + " ";
+        }
+    };
 };
 
 function join() {
+    if (!ws) return alert("WebSocket not connected yet");
     let name = document.getElementById("name").value;
     ws.send(JSON.stringify({action:"join", name}));
 }
 
 function host() {
+    if (!ws) return alert("WebSocket not connected yet");
     let name = document.getElementById("name").value;
     ws.send(JSON.stringify({action:"host", name}));
 }
 
 function start() {
+    if (!ws) return alert("WebSocket not connected yet");
     let name = document.getElementById("name").value;
     ws.send(JSON.stringify({action:"start", name}));
 }
