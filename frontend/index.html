@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head><title>Tambola</title></head>
+<body>
+<h1>Tambola Game</h1>
+<input id="name" placeholder="Enter name"/>
+<button onclick="join()">Join</button>
+<button onclick="host()">Be Host</button>
+<button onclick="start()">Start</button>
+
+<h3>Players:</h3>
+<ul id="players"></ul>
+
+<h3>Countdown: <span id="countdown"></span></h3>
+<h3>Numbers:</h3>
+<div id="numbers"></div>
+
+<script>
+let ws = new WebSocket("ws://" + location.hostname + ":8000/ws");
+
+ws.onmessage = (msg) => {
+    let data = JSON.parse(msg.data);
+
+    if (data.type === "players") {
+        let ul = document.getElementById("players");
+        ul.innerHTML = "";
+        data.players.forEach(p => {
+            let li = document.createElement("li");
+            li.innerText = p;
+            ul.appendChild(li);
+        });
+    }
+
+    if (data.type === "countdown") {
+        document.getElementById("countdown").innerText = data.value;
+    }
+
+    if (data.type === "number") {
+        document.getElementById("numbers").innerHTML += data.value + " ";
+    }
+};
+
+function join() {
+    let name = document.getElementById("name").value;
+    ws.send(JSON.stringify({action:"join", name}));
+}
+
+function host() {
+    let name = document.getElementById("name").value;
+    ws.send(JSON.stringify({action:"host", name}));
+}
+
+function start() {
+    let name = document.getElementById("name").value;
+    ws.send(JSON.stringify({action:"start", name}));
+}
+</script>
+</body>
+</html>
